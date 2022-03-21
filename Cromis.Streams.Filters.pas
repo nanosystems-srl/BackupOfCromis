@@ -52,6 +52,9 @@ type
 
 implementation
 
+uses
+  Types;
+
 type
   TFilterMark = array [0..2] of Cardinal;
 
