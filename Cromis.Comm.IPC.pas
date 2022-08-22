@@ -606,55 +606,48 @@ begin
 end;
 
 procedure TIPCClient.ConnectClient(const ConnectTimeout: Cardinal);
-var
-  AResult: Boolean;
-  TimeLeft: Cardinal;
-  StartTime: TDateTime;
 begin
+  { It's not possible to use WaitNamedPipe in order to wait for a pipe that does not exist. The old code
+    was using 100% cpu (while loop) when CreateFile fails with ERROR_FILE_NOT_FOUND, for ConnectTimeout seconds
+    Now it only waits if the pipe already exists and returns immediately if not.
+
+    Docs:
+    https://docs.microsoft.com/en-us/windows/win32/ipc/named-pipe-client
+    https://docs.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-waitnamedpipew }
+
   FPipeHandle := INVALID_HANDLE_VALUE;
   FIsConnected := False;
   FErrorDesc := '';
   FLastError := 0;
-  StartTime := Now;
 
-  while MilliSecondsBetween(Now, StartTime) < ConnectTimeout do
+  while True do
   begin
     FPipeHandle := CreateFile(PChar(FPipeName),
                               GENERIC_READ or GENERIC_WRITE,
                               0, nil, OPEN_EXISTING, 0, 0);
 
-    // pipe handle acquired, so exit loop
+    { Break if the pipe handle is valid }
     if FPipeHandle <> INVALID_HANDLE_VALUE then
     begin
       FIsConnected := True;
       Exit;
     end;
 
-    if not GetLastError in [ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY] then
+    { Exit if an error other than ERROR_PIPE_BUSY occurs }
+    if GetLastError <> ERROR_PIPE_BUSY then
     begin
-      FErrorDesc := 'CreateFile failed while creating new pipe handle';
+      FErrorDesc := Format('Could not open pipe. GLE=%d', [GetLastError]);
       FLastError := GetLastError;
       Exit;
     end;
 
-    // wait for the pipe to become available (include timeout left)
-    TimeLeft := Max(0, ConnectTimeout - MilliSecondsBetween(Now, StartTime));
-    AResult := WaitNamedPipe(PChar(FPipeName), TimeLeft);
-
-    if not AResult and not (GetLastError in [ERROR_SEM_TIMEOUT, ERROR_PIPE_BUSY, ERROR_FILE_NOT_FOUND]) then
+    { All pipe instances are busy, so wait for "ConnectTimeout" seconds }
+    if not WaitNamedPipe(PChar(FPipeName), ConnectTimeout) then
     begin
-      FErrorDesc := 'WaitNamedPipe failed with fatal error';
+      FErrorDesc := Format('Could not open pipe: %d second wait timed out.', [ConnectTimeout]);
       FLastError := GetLastError;
       Exit;
     end;
-  end;
-
-  // we have timed out while trying to connect
-  if FPipeHandle = INVALID_HANDLE_VALUE then
-  begin
-    FErrorDesc := 'IPC client failed with WAIT timeout';
-    FLastError := WAIT_TIMEOUT;
-    Exit;
   end;
 end;
 
