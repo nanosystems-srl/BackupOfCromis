@@ -212,6 +212,7 @@ Type
 
   TTaskPool = Class
   Strict Private
+    FDisablePrimoz: Boolean;
     FRunning: Boolean;
     FWndHandle: HWND;
     FDynamicSize: Boolean;
@@ -400,7 +401,16 @@ End;
 
 Constructor TTaskPool.Create(Const MinPoolSize: Integer);
 Begin
-  FWndHandle := DSiAllocateHWnd(WatchWndProc);
+  FDisablePrimoz := false;
+  try
+    FWndHandle := DSiAllocateHWnd(WatchWndProc);
+  except
+    // Be careful: AllocateHWnd is not thread safe!
+    // https://www.thedelphigeek.com/2007/06/allocatehwnd-is-not-thread-safe.html
+    FWndHandle := AllocateHWnd(WatchWndProc);
+    FDisablePrimoz := true;
+  end;
+
   FFreeTaskList := TFreeTaskList.Create;
   FAllTaskList := TAllTaskList.Create;
 
@@ -417,7 +427,10 @@ Begin
     Finalize;
 
   // dealocate window handle
-  DSiDeallocateHWnd(FWndHandle);
+  if FDisablePrimoz then
+    DeallocateHWnd(FWndHandle)
+  else
+    DSiDeallocateHWnd(FWndHandle);
 
   Inherited;
 End;

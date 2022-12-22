@@ -3482,7 +3482,11 @@ begin
       avtString: Finalize(string(PValueData(@p.ValueData).VPointer));
       avtAnsiString: Finalize(AnsiString(PValueData(@p.ValueData).VPointer));
       avtWideString: Finalize(WideString(PValueData(@p.ValueData).VPointer));
-      avtNamedValue: Dispose(PNamedValue(PValueData(@p.ValueData).VPointer));
+      avtNamedValue:
+      begin
+        if Assigned(PNamedValue(PValueData(@p.ValueData).VPointer)) then
+          Dispose(PNamedValue(PValueData(@p.ValueData).VPointer));
+      end;
       avtInterface, avtArray: Finalize(IInterface(PValueData(@p.ValueData).VPointer));
     {$IFNDEF CPUX64}
       avtFloat: FreeMem(PValueData(@p.ValueData).VPointer);
