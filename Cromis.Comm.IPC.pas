@@ -624,7 +624,7 @@ begin
   begin
     FPipeHandle := CreateFile(PChar(FPipeName),
                               GENERIC_READ or GENERIC_WRITE,
-                              0, nil, OPEN_EXISTING, 0, 0);
+                              0, nil, OPEN_EXISTING, SECURITY_SQOS_PRESENT or SECURITY_IDENTIFICATION, 0);
 
     { Break if the pipe handle is valid }
     if FPipeHandle <> INVALID_HANDLE_VALUE then
